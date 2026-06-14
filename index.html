@@ -618,7 +618,7 @@ function saveEntry(ds, e) {
 }
 function blank(ds) {
   return { date:ds, weight:'', workouts:[], eatingStart:'', eatingEnd:'',
-           kcalBurned:'', noFap:false, fruitVeg:0, supplements:'', alcohol:false, sweetTreats:false };
+           kcalBurned:'', noFap:null, fruitVeg:null, supplements:'', alcohol:null, sweetTreats:null };
 }
 
 // ════════════════════════════════════════════════
@@ -717,20 +717,20 @@ function renderForm(ds, pfx) {
 <div class="card">
   <div class="card-label">Habits</div>
   <div class="habits-grid">
-    <div class="habit-btn${e.noFap?' on-good':''}" id="${pfx}-nf" onclick="togHabit('${ds}','${pfx}','noFap')">
+    <div class="habit-btn${habitCls('noFap',e.noFap)}" id="${pfx}-nf" onclick="togHabit('${ds}','${pfx}','noFap')">
       <span class="hi">🔒</span>
       <span class="hl">NoFap</span>
-      <span class="hs">${e.noFap?'YES':'NO'}</span>
+      <span class="hs">${habitLabel(e.noFap)}</span>
     </div>
-    <div class="habit-btn${e.alcohol?' on-bad':''}" id="${pfx}-al" onclick="togHabit('${ds}','${pfx}','alcohol')">
+    <div class="habit-btn${habitCls('alcohol',e.alcohol)}" id="${pfx}-al" onclick="togHabit('${ds}','${pfx}','alcohol')">
       <span class="hi">🍺</span>
       <span class="hl">Alcohol</span>
-      <span class="hs">${e.alcohol?'YES':'NO'}</span>
+      <span class="hs">${habitLabel(e.alcohol)}</span>
     </div>
-    <div class="habit-btn${e.sweetTreats?' on-bad':''}" id="${pfx}-st" onclick="togHabit('${ds}','${pfx}','sweetTreats')">
+    <div class="habit-btn${habitCls('sweetTreats',e.sweetTreats)}" id="${pfx}-st" onclick="togHabit('${ds}','${pfx}','sweetTreats')">
       <span class="hi">🍫</span>
       <span class="hl">Treats</span>
-      <span class="hs">${e.sweetTreats?'YES':'NO'}</span>
+      <span class="hs">${habitLabel(e.sweetTreats)}</span>
     </div>
   </div>
 </div>
@@ -742,7 +742,7 @@ function renderForm(ds, pfx) {
   <div class="stepper">
     <button class="step-btn" onclick="stepFV('${ds}','${pfx}',-1)">−</button>
     <div class="step-val-wrap">
-      <div class="step-val" id="${pfx}-fv">${e.fruitVeg}</div>
+      <div class="step-val" id="${pfx}-fv">${e.fruitVeg ?? '—'}</div>
       <div class="step-unit">portions</div>
     </div>
     <button class="step-btn" onclick="stepFV('${ds}','${pfx}',1)">+</button>
@@ -855,17 +855,27 @@ const HABIT_CONFIG = {
   sweetTreats:{ id:'st', good:false },
 };
 
+function habitCls(field, val) {
+  if(val === null || val === undefined) return '';
+  const cfg = HABIT_CONFIG[field];
+  return val ? (cfg.good ? ' on-good' : ' on-bad') : (cfg.good ? ' on-bad' : ' on-good');
+}
+function habitLabel(val) {
+  if(val === null || val === undefined) return '—';
+  return val ? 'YES' : 'NO';
+}
+
 function togHabit(ds, pfx, field) {
   const entry = getEntry(ds);
-  entry[field] = !entry[field];
+  const cur = entry[field];
+  entry[field] = (cur === null || cur === undefined) ? true : cur === true ? false : null;
   saveEntry(ds, entry);
 
   const cfg = HABIT_CONFIG[field];
   const el = document.getElementById(`${pfx}-${cfg.id}`);
   if(!el) return;
-  const on = entry[field];
-  el.className = `habit-btn${on ? (cfg.good?' on-good':' on-bad') : ''}`;
-  el.querySelector('.hs').textContent = on ? 'YES' : 'NO';
+  el.className = 'habit-btn' + habitCls(field, entry[field]);
+  el.querySelector('.hs').textContent = habitLabel(entry[field]);
 }
 
 // ════════════════════════════════════════════════
@@ -873,7 +883,9 @@ function togHabit(ds, pfx, field) {
 // ════════════════════════════════════════════════
 function stepFV(ds, pfx, delta) {
   const entry = getEntry(ds);
-  entry.fruitVeg = Math.max(0, Math.min(20, (entry.fruitVeg||0) + delta));
+  const isNull = entry.fruitVeg === null || entry.fruitVeg === undefined;
+  if(isNull && delta < 0) return;
+  entry.fruitVeg = Math.max(0, Math.min(20, (isNull ? 0 : entry.fruitVeg) + delta));
   saveEntry(ds, entry);
   const el = document.getElementById(`${pfx}-fv`);
   if(el) el.textContent = entry.fruitVeg;
@@ -965,11 +977,11 @@ function renderHistDetail() {
     e.workouts.length && wTotal && `<div class="dr"><span class="dl">Workout kcal</span><span class="dv a">${wTotal}</span></div>`,
     eh             && `<div class="dr"><span class="dl">Eating window</span><span class="dv">${e.eatingStart}–${e.eatingEnd} · ${eh}</span></div>`,
     e.kcalBurned   && `<div class="dr"><span class="dl">kcal burned</span><span class="dv">${e.kcalBurned}</span></div>`,
-    `<div class="dr"><span class="dl">NoFap</span><span class="dv ${e.noFap?'g':'r'}">${e.noFap?'✓ Yes':'✗ No'}</span></div>`,
-    `<div class="dr"><span class="dl">Fruit &amp; veg</span><span class="dv">${e.fruitVeg} portions</span></div>`,
+    e.noFap !== null && e.noFap !== undefined && `<div class="dr"><span class="dl">NoFap</span><span class="dv ${e.noFap?'g':'r'}">${e.noFap?'✓ Yes':'✗ No'}</span></div>`,
+    e.fruitVeg !== null && e.fruitVeg !== undefined && `<div class="dr"><span class="dl">Fruit &amp; veg</span><span class="dv">${e.fruitVeg} portions</span></div>`,
     e.supplements  && `<div class="dr"><span class="dl">Supplements</span><span class="dv">${esc(e.supplements)}</span></div>`,
-    `<div class="dr"><span class="dl">Alcohol</span><span class="dv ${e.alcohol?'r':'g'}">${e.alcohol?'✓ Yes':'✗ No'}</span></div>`,
-    `<div class="dr"><span class="dl">Sweet treats</span><span class="dv ${e.sweetTreats?'r':'g'}">${e.sweetTreats?'✓ Yes':'✗ No'}</span></div>`,
+    e.alcohol !== null && e.alcohol !== undefined && `<div class="dr"><span class="dl">Alcohol</span><span class="dv ${e.alcohol?'r':'g'}">${e.alcohol?'✓ Yes':'✗ No'}</span></div>`,
+    e.sweetTreats !== null && e.sweetTreats !== undefined && `<div class="dr"><span class="dl">Sweet treats</span><span class="dv ${e.sweetTreats?'r':'g'}">${e.sweetTreats?'✓ Yes':'✗ No'}</span></div>`,
   ].filter(Boolean);
 
   c.innerHTML=`<div class="hist-detail">
@@ -1042,22 +1054,26 @@ function renderDashboard() {
   const entries = dates.map(ds => all[ds] ? all[ds] : blank(ds));
   const labels  = dates.map(dispShort);
 
-  const weights   = entries.map(e=>e.weight?Number(e.weight):null);
-  const kcals     = entries.map(e=>e.kcalBurned?Number(e.kcalBurned):0);
-  const wkFreq    = entries.map(e=>(e.workouts||[]).length);
-  const fvArr     = entries.map(e=>e.fruitVeg||0);
+  const weights = entries.map(e=>e.weight?Number(e.weight):null);
+  const kcals   = entries.map(e=>(e.kcalBurned!==''&&e.kcalBurned!=null)?Number(e.kcalBurned):null);
+  const wkFreq  = entries.map(e=>(e.workouts||[]).length);
+  const fvArr   = entries.map(e=>e.fruitVeg!=null?Number(e.fruitVeg):null);
 
   const n = entries.length;
-  const noFapHits   = entries.filter(e=>e.noFap).length;
-  const alcFreeHits = entries.filter(e=>!e.alcohol).length;
-  const trtFreeHits = entries.filter(e=>!e.sweetTreats).length;
+  const loggedNF  = entries.filter(e=>e.noFap!==null&&e.noFap!==undefined);
+  const loggedAlc = entries.filter(e=>e.alcohol!==null&&e.alcohol!==undefined);
+  const loggedTrt = entries.filter(e=>e.sweetTreats!==null&&e.sweetTreats!==undefined);
+  const noFapHits   = loggedNF.filter(e=>e.noFap).length;
+  const alcFreeHits = loggedAlc.filter(e=>!e.alcohol).length;
+  const trtFreeHits = loggedTrt.filter(e=>!e.sweetTreats).length;
+  const noFapN = loggedNF.length, alcN = loggedAlc.length, trtN = loggedTrt.length;
 
-  const latestW = [...weights].reverse().find(w=>w!==null);
-  const kcalAvg = kcals.filter(k=>k>0).length
-    ? Math.round(kcals.filter(k=>k>0).reduce((a,b)=>a+b,0)/kcals.filter(k=>k>0).length) : 0;
-  const wkDays  = wkFreq.filter(f=>f>0).length;
-  const fvAvg   = fvArr.filter(f=>f>0).length
-    ? (fvArr.reduce((a,b)=>a+b,0)/fvArr.filter(f=>f>0).length).toFixed(1) : null;
+  const latestW  = [...weights].reverse().find(w=>w!==null);
+  const kcalFilt = kcals.filter(k=>k!==null&&k>0);
+  const kcalAvg  = kcalFilt.length ? Math.round(kcalFilt.reduce((a,b)=>a+b,0)/kcalFilt.length) : null;
+  const wkDays   = wkFreq.filter(f=>f>0).length;
+  const fvFilt   = fvArr.filter(v=>v!==null);
+  const fvAvg    = fvFilt.length ? (fvFilt.reduce((a,b)=>a+b,0)/fvFilt.length).toFixed(1) : null;
 
   document.getElementById('dash-body').innerHTML = `
 <div class="chart-card">
@@ -1067,7 +1083,7 @@ function renderDashboard() {
 </div>
 <div class="chart-card">
   <div class="chart-label">kcal Burned</div>
-  <div class="chart-stat">${kcalAvg||'—'}<em>${kcalAvg?'avg/day':''}</em></div>
+  <div class="chart-stat">${kcalAvg??'—'}<em>${kcalAvg!==null?'avg/day':''}</em></div>
   <canvas id="ch-kb"></canvas>
 </div>
 <div class="chart-card">
@@ -1084,21 +1100,21 @@ function renderDashboard() {
   <div class="chart-label">Habit Hit Rates – Last ${n} Days</div>
   <div class="habit-rates">
     <div class="hr-card">
-      <div class="hr-pct" style="color:var(--green)">${pct(noFapHits,n)}%</div>
+      <div class="hr-pct" style="color:var(--green)">${noFapN?pct(noFapHits,noFapN)+'%':'—'}</div>
       <div class="hr-lbl">🔒 NoFap</div>
     </div>
     <div class="hr-card">
-      <div class="hr-pct" style="color:var(--green)">${pct(alcFreeHits,n)}%</div>
+      <div class="hr-pct" style="color:var(--green)">${alcN?pct(alcFreeHits,alcN)+'%':'—'}</div>
       <div class="hr-lbl">🍺 Alc-free</div>
     </div>
     <div class="hr-card">
-      <div class="hr-pct" style="color:var(--green)">${pct(trtFreeHits,n)}%</div>
+      <div class="hr-pct" style="color:var(--green)">${trtN?pct(trtFreeHits,trtN)+'%':'—'}</div>
       <div class="hr-lbl">🍫 Treat-free</div>
     </div>
   </div>
   <div class="chart-label" style="margin-bottom:4px">NoFap streak</div>
   <div class="streak-row">
-    ${entries.map(e=>`<div class="sd ${e.noFap?'hit':'mss'}" title="${dispShort(e.date)}"></div>`).join('')}
+    ${entries.map(e=>`<div class="sd ${e.noFap===true?'hit':e.noFap===false?'mss':''}" title="${dispShort(e.date)}"></div>`).join('')}
   </div>
 </div>`;
 
@@ -1137,7 +1153,7 @@ function renderDashboard() {
     type:'bar',
     data:{labels,datasets:[{
       data:kcals,
-      backgroundColor:kcals.map(k=>k>0?BLUE:EMPTY),
+      backgroundColor:kcals.map(k=>k!==null&&k>0?BLUE:EMPTY),
       borderRadius:4
     }]},
     options:{...baseOpts}
@@ -1159,7 +1175,7 @@ function renderDashboard() {
     type:'bar',
     data:{labels,datasets:[{
       data:fvArr,
-      backgroundColor:fvArr.map(f=>f>=5?GREEN:f>0?AMBER:EMPTY),
+      backgroundColor:fvArr.map(f=>f!==null?(f>=5?GREEN:f>0?AMBER:EMPTY):EMPTY),
       borderRadius:4
     }]},
     options:{...baseOpts}
