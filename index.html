@@ -592,24 +592,6 @@ canvas{max-height:140px}
   </nav>
 </div>
 
-<!-- Health modal -->
-<div class="modal-bg" id="modal-health" onclick="if(event.target===this)closeModal('modal-health')">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title">Apple Health Sync</div>
-    <div class="modal-body">
-      <p>Web apps can't read HealthKit directly. Here are your options:</p>
-      <p><strong>Method 1 – Health App</strong><br>
-        Open <strong>Health</strong> → Summary → tap <strong>Activity</strong> → <strong>Active Energy</strong> to see today's total. Enter it manually here.</p>
-      <p><strong>Method 2 – Apple Shortcuts</strong><br>
-        Create a Shortcut: <em>Get Health Samples</em> (type: Active Energy, today) → <em>Get Numbers from Input</em> → <em>Copy to Clipboard</em>. Run it before opening FitLog, then paste.</p>
-      <p><strong>Method 3 – Apple Watch</strong><br>
-        Swipe up on watch face → Activity ring → scroll to see Active calories.</p>
-    </div>
-    <button class="modal-close" onclick="closeModal('modal-health')">Got it</button>
-  </div>
-</div>
-
 <!-- Edit overlay for past days -->
 <div class="edit-ov" id="edit-ov">
   <div class="edit-ov-hdr">
@@ -740,13 +722,7 @@ function renderForm(ds, pfx) {
         style="font-size:36px;font-weight:700;text-align:center;padding-right:56px">
       <span class="kcal-unit">kcal</span>
     </div>
-    <button class="icon-btn" onclick="openModal('modal-health')" title="Apple Health">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-      </svg>
-    </button>
   </div>
-  <div class="hint">Active Energy from Apple Watch / Health app</div>
 </div>
 
 <!-- HABITS -->
@@ -1302,11 +1278,6 @@ function renderSettings() {
 
   <div class="security-note">🔒 Token stored in your browser's localStorage only — sent exclusively to <strong>api.github.com</strong>.<br>
   To create a token: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained → grant <strong>Gist</strong> read/write.</div>
-</div>
-
-<div class="tip-card" style="margin-top:4px">
-  <strong>Apple Health Sync</strong><br>
-  Web apps can't read HealthKit. Fastest: open <strong>Health → Activity → Active Energy</strong>, note the number, enter it manually. Or build an Apple Shortcut to copy it to clipboard.
 </div>
 
 <div class="card-label" style="padding:0 2px 8px">Data</div>
