@@ -366,6 +366,26 @@ input[type=password]:focus{border-color:var(--accent)}
 .security-note{margin-top:12px;font-size:11px;color:var(--text3);line-height:1.55}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spin{display:inline-block;animation:spin .7s linear infinite}
+
+/* ── PIN Lock ── */
+#pin-ov{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.pin-inner{width:100%;max-width:300px;text-align:center}
+.pin-logo{font-size:22px;font-weight:700;letter-spacing:-.3px;color:var(--text);margin-bottom:36px;opacity:.5}
+.pin-head{font-size:22px;font-weight:700;margin-bottom:7px;letter-spacing:-.3px}
+.pin-sub{font-size:14px;color:var(--text2);margin-bottom:32px;line-height:1.5}
+.pin-sub-gap{height:32px}
+.pin-dots{display:flex;gap:20px;justify-content:center;margin-bottom:10px}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:background .12s,border-color .12s,transform .12s}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent);transform:scale(1.15)}
+.pin-err{font-size:13px;color:var(--red);min-height:22px;margin-bottom:14px;transition:opacity .2s}
+.pin-pad{display:grid;grid-template-columns:repeat(3,72px);gap:14px;margin-top:10px;justify-content:center}
+.pin-key{width:72px;height:72px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:22px;font-weight:400;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .1s,transform .08s;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+.pin-key:active{background:var(--accent-dim);transform:scale(.93)}
+.pin-key.empty{background:transparent;border:none;pointer-events:none}
+.pin-key.del{background:transparent;border:none;color:var(--text2);font-size:22px}
+.pin-key.del:active{background:var(--surface2);transform:scale(.93)}
+@keyframes pinshake{0%,100%{transform:translateX(0)}15%,45%,75%{transform:translateX(-9px)}30%,60%,90%{transform:translateX(9px)}}
+.pin-shake{animation:pinshake .38s ease}
 </style>
 </head>
 <body>
@@ -463,6 +483,11 @@ input[type=password]:focus{border-color:var(--accent)}
     <button class="done-btn" onclick="closeEditOv()">Done</button>
   </div>
   <div class="edit-ov-body" id="edit-ov-body"></div>
+</div>
+
+<!-- PIN overlay — shown by default so app content never flashes before auth -->
+<div id="pin-ov">
+  <div class="pin-inner" id="pin-screen"></div>
 </div>
 
 <!-- Import input -->
@@ -1109,13 +1134,24 @@ function renderSettings() {
     <span class="srow-arr">›</span>
   </div>
 </div>
+<div class="card-label" style="padding:0 2px 8px">Security</div>
+<div class="settings-list">
+  <div class="srow" onclick="startChangePIN()">
+    <span class="srow-icon">🔒</span>
+    <div class="srow-info">
+      <div class="srow-title">Change PIN</div>
+      <div class="srow-desc">Update your 4-digit app lock</div>
+    </div>
+    <span class="srow-arr">›</span>
+  </div>
+</div>
 <div class="card-label" style="padding:0 2px 8px">About</div>
 <div class="settings-list">
   <div class="srow" style="cursor:default">
     <span class="srow-icon">💪</span>
     <div class="srow-info">
       <div class="srow-title">FitLog</div>
-      <div class="srow-desc">v1.1 · localStorage + optional GitHub Gist sync</div>
+      <div class="srow-desc">v1.2 · localStorage + Gist sync + PIN lock</div>
     </div>
   </div>
 </div>`;
@@ -1156,6 +1192,190 @@ function doImport(ev) {
   r.readAsText(file);
   ev.target.value='';
 }
+
+// ════════════════════════════════════════════════
+//  PIN LOCK
+// ════════════════════════════════════════════════
+const PIN_KEY = 'fitlog_pin';
+
+let pinEntry   = '';
+let pinPending = '';
+let pinMode    = '';
+
+const PIN_TITLES = {
+  'create':         'Create a PIN',
+  'create-confirm': 'Confirm your PIN',
+  'enter':          'Enter PIN',
+  'change-old':     'Enter current PIN',
+  'change-new':     'Enter new PIN',
+  'change-confirm': 'Confirm new PIN',
+};
+const PIN_SUBS = {
+  'create':         'Choose a 4-digit PIN to protect your data',
+  'create-confirm': 'Re-enter your PIN to confirm',
+  'enter':          null,
+  'change-old':     null,
+  'change-new':     'Choose your new 4-digit PIN',
+  'change-confirm': 'Re-enter to confirm',
+};
+
+function setupPinOverlay(mode) {
+  pinMode  = mode;
+  pinEntry = '';
+  if(mode === 'create' || mode === 'change-new') pinPending = '';
+  renderPinScreen();
+  document.getElementById('pin-ov').style.display = 'flex';
+}
+
+function renderPinScreen() {
+  pinEntry = '';
+  const sub = PIN_SUBS[pinMode];
+  document.getElementById('pin-screen').innerHTML = `
+    <div class="pin-logo">FitLog</div>
+    <div class="pin-head">${PIN_TITLES[pinMode]}</div>
+    ${sub ? `<div class="pin-sub">${sub}</div>` : `<div class="pin-sub-gap"></div>`}
+    <div class="pin-dots" id="pin-dots">
+      ${[0,1,2,3].map(i=>`<div class="pin-dot" id="pd-${i}"></div>`).join('')}
+    </div>
+    <div class="pin-err" id="pin-err"></div>
+    <div class="pin-pad">
+      ${[1,2,3,4,5,6,7,8,9].map(n=>`<button class="pin-key" onclick="pinDigit(${n})">${n}</button>`).join('')}
+      <div class="pin-key empty"></div>
+      <button class="pin-key" onclick="pinDigit(0)">0</button>
+      <button class="pin-key del" onclick="pinBack()">⌫</button>
+    </div>
+  `;
+}
+
+function pinDigit(d) {
+  if(pinEntry.length >= 4) return;
+  pinEntry += String(d);
+  updatePinDots();
+  if(pinEntry.length === 4) setTimeout(pinSubmit, 150);
+}
+
+function pinBack() {
+  if(!pinEntry.length) return;
+  pinEntry = pinEntry.slice(0,-1);
+  updatePinDots();
+  const el = document.getElementById('pin-err');
+  if(el) el.textContent = '';
+}
+
+function updatePinDots() {
+  for(let i=0;i<4;i++)
+    document.getElementById(`pd-${i}`)?.classList.toggle('filled', i < pinEntry.length);
+}
+
+function pinErrMsg(msg) {
+  const el = document.getElementById('pin-err');
+  if(el) el.textContent = msg;
+  pinEntry = '';
+  updatePinDots();
+}
+
+function pinShake() {
+  const el = document.getElementById('pin-dots');
+  if(!el) return;
+  el.classList.remove('pin-shake');
+  void el.offsetWidth;
+  el.classList.add('pin-shake');
+  setTimeout(()=>el.classList.remove('pin-shake'), 420);
+}
+
+async function pinSubmit() {
+  const pin = pinEntry;
+  switch(pinMode) {
+
+    case 'create': {
+      pinPending = pin;
+      pinMode = 'create-confirm';
+      renderPinScreen();
+      break;
+    }
+    case 'create-confirm': {
+      if(pin !== pinPending) {
+        pinShake(); pinErrMsg("PINs don't match — try again");
+        setTimeout(()=>{ pinMode='create'; renderPinScreen(); }, 950);
+        return;
+      }
+      await setPinHash(pin);
+      onPinUnlocked();
+      break;
+    }
+    case 'enter': {
+      if(!await checkPin(pin)){ pinShake(); pinErrMsg('Incorrect PIN'); return; }
+      onPinUnlocked();
+      break;
+    }
+    case 'change-old': {
+      if(!await checkPin(pin)){ pinShake(); pinErrMsg('Incorrect PIN'); return; }
+      pinMode = 'change-new';
+      renderPinScreen();
+      break;
+    }
+    case 'change-new': {
+      pinPending = pin;
+      pinMode = 'change-confirm';
+      renderPinScreen();
+      break;
+    }
+    case 'change-confirm': {
+      if(pin !== pinPending) {
+        pinShake(); pinErrMsg("PINs don't match — try again");
+        setTimeout(()=>{ pinMode='change-new'; renderPinScreen(); }, 950);
+        return;
+      }
+      await setPinHash(pin);
+      hidePinOverlay();
+      toast('PIN updated ✓');
+      break;
+    }
+  }
+}
+
+async function onPinUnlocked() {
+  sessionStorage.setItem('fitlog_unlocked','1');
+  hidePinOverlay();
+  await bootApp();
+}
+
+function hidePinOverlay() {
+  document.getElementById('pin-ov').style.display = 'none';
+}
+
+function startChangePIN() {
+  setupPinOverlay('change-old');
+}
+
+async function hashPin(pin) {
+  const salted = pin + '_fitlog_v1';
+  try {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salted));
+    return 'sha256:' + Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  } catch {
+    // Fallback for non-secure contexts (file:// on Chrome)
+    let h = 5381;
+    for(const c of salted) h = ((h << 5) + h ^ c.charCodeAt(0)) >>> 0;
+    return 'djb2:' + h.toString(16);
+  }
+}
+
+async function setPinHash(pin) {
+  localStorage.setItem(PIN_KEY, await hashPin(pin));
+}
+
+async function checkPin(pin) {
+  const stored = localStorage.getItem(PIN_KEY);
+  return !!stored && (await hashPin(pin)) === stored;
+}
+
+// Keyboard input while overlay is visible
+document.addEventListener('keydown', e => {
+  if(document.getElementById('pin-ov')?.style.display === 'none') return;
+  if(e.key >= '0' && e.key <= '9') { e.preventDefault(); pinDigit(+e.key); }
+  if(e.key === 'Backspace') { e.preventDefault(); pinBack(); }
+});
 
 // ════════════════════════════════════════════════
 //  GIST SYNC
@@ -1433,21 +1653,36 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 // ════════════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', async () => {
+async function bootApp() {
   document.getElementById('hdr-sub').textContent = dispDate(todayStr());
   updateSyncDot();
-
-  // Pull from Gist on startup (Gist wins on conflict), then render
   await gistPull();
   renderToday();
+}
 
-  // Save on tab hide (background on iOS)
+document.addEventListener('DOMContentLoaded', async () => {
+  // Always register save-on-hide handlers regardless of lock state
   document.addEventListener('visibilitychange', () => {
     if(document.hidden && currentView==='today') flushForm(todayStr(), todayStr());
   });
   window.addEventListener('pagehide', () => {
     if(currentView==='today') flushForm(todayStr(), todayStr());
   });
+
+  const hasPin    = !!localStorage.getItem(PIN_KEY);
+  const sessionOk = !!sessionStorage.getItem('fitlog_unlocked');
+
+  if(!hasPin) {
+    // First run — prompt to create a PIN
+    setupPinOverlay('create');
+  } else if(sessionOk) {
+    // Tab already unlocked this session — skip straight to app
+    hidePinOverlay();
+    await bootApp();
+  } else {
+    // Returning visit — require PIN
+    setupPinOverlay('enter');
+  }
 });
 </script>
 </body>
