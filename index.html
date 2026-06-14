@@ -1171,6 +1171,15 @@ function renderDashboard() {
 
   // Weight line — uses its own range/labels independent of dashRange
   const wtPtR = weightRange <= 30 ? 4 : 3;
+  const validWts = wtWeights.filter(w => w !== null);
+  let wtYMin, wtYMax;
+  if(validWts.length) {
+    const avg    = validWts.reduce((a,b) => a+b, 0) / validWts.length;
+    const dMin   = Math.min(...validWts);
+    const dMax   = Math.max(...validWts);
+    wtYMin = Math.floor(Math.min(avg - 5, dMin));
+    wtYMax = Math.ceil(Math.max(avg + 5, dMax));
+  }
   charts.wt = new Chart(document.getElementById('ch-wt'),{
     type:'line',
     data:{labels:wtLabels,datasets:[{
@@ -1178,10 +1187,21 @@ function renderDashboard() {
       fill:true, tension:.4, pointBackgroundColor:BLUE,
       pointRadius:wtWeights.map(w=>w!==null?wtPtR:0), spanGaps:true,
     }]},
-    options:{...baseOpts, scales:{
-      x:{ticks:{color:tickColor,font:{size:9},maxRotation:0,maxTicksLimit:8},grid:{color:gridColor}},
-      y:{ticks:{color:tickColor,font:{size:10}},grid:{color:gridColor}}
-    }}
+    options:{
+      ...baseOpts,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>ctx.parsed.y!=null?ctx.parsed.y.toFixed(1)+' kg':''}}
+      },
+      scales:{
+        x:{ticks:{color:tickColor,font:{size:9},maxRotation:0,maxTicksLimit:8},grid:{color:gridColor}},
+        y:{
+          ...(validWts.length ? {min:wtYMin,max:wtYMax} : {}),
+          ticks:{color:tickColor,font:{size:10},stepSize:1,callback:v=>Math.round(v)},
+          grid:{color:gridColor}
+        }
+      }
+    }
   });
 
   // Kcal bars
