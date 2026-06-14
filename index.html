@@ -6,6 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#0a0a0a">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="NLNDlogo.svg">
 <title>FitLog</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -496,6 +498,27 @@ canvas{max-height:140px}
 .pin-key.del:active{background:transparent;transform:scale(.91)}
 @keyframes pinshake{0%,100%{transform:translateX(0)}15%,45%,75%{transform:translateX(-9px)}30%,60%,90%{transform:translateX(9px)}}
 .pin-shake{animation:pinshake .38s ease}
+
+/* ── NLND Logo ── */
+.app-hdr-logo{
+  position:absolute;left:50%;transform:translateX(-50%);
+  height:24px;width:auto;pointer-events:none;display:block;
+}
+@keyframes pinLogoIn{
+  from{opacity:0;transform:scale(.8)}
+  to{opacity:1;transform:scale(1)}
+}
+@keyframes pinContentIn{
+  from{opacity:0}
+  to{opacity:1}
+}
+.pin-logo-img{
+  height:80px;width:auto;display:block;margin:0 auto 44px;
+  animation:pinLogoIn 600ms ease-out both;
+}
+.pin-content{
+  animation:pinContentIn 400ms ease-out 450ms both;
+}
 </style>
 </head>
 <body>
@@ -505,6 +528,7 @@ canvas{max-height:140px}
       <div class="app-hdr-title" id="hdr-title">FitLog</div>
       <div class="app-hdr-sub" id="hdr-sub"></div>
     </div>
+    <img src="NLNDlogo.svg" class="app-hdr-logo" alt="NLND">
     <div id="hdr-action">
       <div class="hdr-sync" id="hdr-sync" style="display:none">
         <div class="sync-dot" id="sync-dot"></div>
@@ -1401,18 +1425,20 @@ function renderPinScreen() {
   pinEntry = '';
   const sub = PIN_SUBS[pinMode];
   document.getElementById('pin-screen').innerHTML = `
-    <div class="pin-logo">FitLog</div>
-    <div class="pin-head">${PIN_TITLES[pinMode]}</div>
-    ${sub ? `<div class="pin-sub">${sub}</div>` : `<div class="pin-sub-gap"></div>`}
-    <div class="pin-dots" id="pin-dots">
-      ${[0,1,2,3].map(i=>`<div class="pin-dot" id="pd-${i}"></div>`).join('')}
-    </div>
-    <div class="pin-err" id="pin-err"></div>
-    <div class="pin-pad">
-      ${[1,2,3,4,5,6,7,8,9].map(n=>`<button class="pin-key" onclick="pinDigit(${n})">${n}</button>`).join('')}
-      <div class="pin-key empty"></div>
-      <button class="pin-key" onclick="pinDigit(0)">0</button>
-      <button class="pin-key del" onclick="pinBack()">⌫</button>
+    <img src="NLNDlogo.svg" class="pin-logo-img" alt="NLND">
+    <div class="pin-content">
+      <div class="pin-head">${PIN_TITLES[pinMode]}</div>
+      ${sub ? `<div class="pin-sub">${sub}</div>` : `<div class="pin-sub-gap"></div>`}
+      <div class="pin-dots" id="pin-dots">
+        ${[0,1,2,3].map(i=>`<div class="pin-dot" id="pd-${i}"></div>`).join('')}
+      </div>
+      <div class="pin-err" id="pin-err"></div>
+      <div class="pin-pad">
+        ${[1,2,3,4,5,6,7,8,9].map(n=>`<button class="pin-key" onclick="pinDigit(${n})">${n}</button>`).join('')}
+        <div class="pin-key empty"></div>
+        <button class="pin-key" onclick="pinDigit(0)">0</button>
+        <button class="pin-key del" onclick="pinBack()">⌫</button>
+      </div>
     </div>
   `;
 }
