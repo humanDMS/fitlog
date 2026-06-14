@@ -304,6 +304,18 @@ input[id$="-kb"],input[id$="-fv"]{
   transition:color .15s,border-color .15s;letter-spacing:.04em;
 }
 .range-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.wt-range-row{
+  display:flex;gap:0;margin-bottom:14px;
+  border-bottom:1px solid var(--border);
+}
+.wt-range-btn{
+  flex:1;padding:7px 0;background:transparent;border:none;
+  border-bottom:2px solid transparent;margin-bottom:-1px;
+  color:var(--text3);font-size:11px;font-weight:500;
+  cursor:pointer;text-align:center;
+  transition:color .15s,border-color .15s;letter-spacing:.05em;
+}
+.wt-range-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
 .chart-card{
   background:transparent;border:none;border-radius:0;
   border-bottom:1px solid var(--border);padding:22px 0;margin-bottom:0;
@@ -1021,6 +1033,7 @@ function closeEditOv() {
 //  DASHBOARD
 // ════════════════════════════════════════════════
 let dashRange = 7;
+let weightRange = 7;
 const charts = {};
 
 function setRange(n) {
@@ -1028,6 +1041,40 @@ function setRange(n) {
   document.querySelectorAll('.range-btn').forEach(b=>{
     b.classList.toggle('active', b.textContent.trim()===(n+' Days'));
   });
+  renderDashboard();
+}
+
+const WT_RANGES = [
+  { label:'7D',  days:7,   minPrior:0   },
+  { label:'30D', days:30,  minPrior:8   },
+  { label:'3M',  days:90,  minPrior:31  },
+  { label:'6M',  days:180, minPrior:91  },
+  { label:'1Y',  days:365, minPrior:181 },
+  { label:'All', days:0,   minPrior:366 },
+];
+
+function oldestWeightDays(all) {
+  const wds = Object.keys(all)
+    .filter(ds => all[ds].weight && String(all[ds].weight).trim() !== '')
+    .sort();
+  if(!wds.length) return 0;
+  return Math.round((new Date(todayStr()+'T00:00:00') - new Date(wds[0]+'T00:00:00')) / 86400000);
+}
+
+function wtRangeDates(all, days) {
+  if(days === 0) {
+    const wds = Object.keys(all)
+      .filter(ds => all[ds].weight && String(all[ds].weight).trim() !== '')
+      .sort();
+    if(!wds.length) return getLast(7);
+    const span = Math.round((new Date(todayStr()+'T00:00:00') - new Date(wds[0]+'T00:00:00')) / 86400000) + 1;
+    return getLast(span);
+  }
+  return getLast(days);
+}
+
+function setWeightRange(days) {
+  weightRange = days;
   renderDashboard();
 }
 
@@ -1039,7 +1086,6 @@ function renderDashboard() {
   const entries = dates.map(ds => all[ds] ? all[ds] : blank(ds));
   const labels  = dates.map(dispShort);
 
-  const weights = entries.map(e=>e.weight?Number(e.weight):null);
   const kcals   = entries.map(e=>(e.kcalBurned!==''&&e.kcalBurned!=null)?Number(e.kcalBurned):null);
   const wkFreq  = entries.map(e=>(e.workouts||[]).length);
   const fvArr   = entries.map(e=>e.fruitVeg!=null?Number(e.fruitVeg):null);
@@ -1053,7 +1099,19 @@ function renderDashboard() {
   const trtFreeHits = loggedTrt.filter(e=>!e.sweetTreats).length;
   const noFapN = loggedNF.length, alcN = loggedAlc.length, trtN = loggedTrt.length;
 
-  const latestW  = [...weights].reverse().find(w=>w!==null);
+  // Weight — separate range from other metrics
+  const ageDays = oldestWeightDays(all);
+  const availWtRanges = WT_RANGES.filter(r => ageDays >= r.minPrior);
+  if(availWtRanges.length && !availWtRanges.find(r => r.days === weightRange))
+    weightRange = availWtRanges[availWtRanges.length - 1].days;
+  const wtDates   = wtRangeDates(all, weightRange);
+  const wtLabels  = wtDates.map(dispShort);
+  const wtWeights = wtDates.map(ds => (all[ds]?.weight) ? Number(all[ds].weight) : null);
+  const latestW   = [...wtWeights].reverse().find(w => w !== null);
+  const wtRangeBtnsHtml = availWtRanges.map(r =>
+    `<button class="wt-range-btn${r.days===weightRange?' active':''}" onclick="setWeightRange(${r.days})">${r.label}</button>`
+  ).join('');
+
   const kcalFilt = kcals.filter(k=>k!==null&&k>0);
   const kcalAvg  = kcalFilt.length ? Math.round(kcalFilt.reduce((a,b)=>a+b,0)/kcalFilt.length) : null;
   const wkDays   = wkFreq.filter(f=>f>0).length;
@@ -1064,6 +1122,7 @@ function renderDashboard() {
 <div class="chart-card">
   <div class="chart-label">Weight Trend</div>
   <div class="chart-stat">${latestW??'—'}<em>${latestW?'kg':''}</em></div>
+  <div class="wt-range-row">${wtRangeBtnsHtml}</div>
   <canvas id="ch-wt"></canvas>
 </div>
 <div class="chart-card">
@@ -1122,15 +1181,19 @@ function renderDashboard() {
   const AMBER = '#f59e0b';
   const EMPTY = '#1e1e1e';
 
-  // Weight line
+  // Weight line — uses its own range/labels independent of dashRange
+  const wtPtR = weightRange <= 30 ? 4 : 3;
   charts.wt = new Chart(document.getElementById('ch-wt'),{
     type:'line',
-    data:{labels,datasets:[{
-      data:weights, borderColor:BLUE, backgroundColor:BLUE_A,
+    data:{labels:wtLabels,datasets:[{
+      data:wtWeights, borderColor:BLUE, backgroundColor:BLUE_A,
       fill:true, tension:.4, pointBackgroundColor:BLUE,
-      pointRadius:weights.map(w=>w!==null?4:0), spanGaps:true,
+      pointRadius:wtWeights.map(w=>w!==null?wtPtR:0), spanGaps:true,
     }]},
-    options:{...baseOpts}
+    options:{...baseOpts, scales:{
+      x:{ticks:{color:tickColor,font:{size:9},maxRotation:0,maxTicksLimit:8},grid:{color:gridColor}},
+      y:{ticks:{color:tickColor,font:{size:10}},grid:{color:gridColor}}
+    }}
   });
 
   // Kcal bars
