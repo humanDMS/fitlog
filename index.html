@@ -128,7 +128,7 @@ input[id$="-wt"]{
   padding:4px 52px 4px 0!important;
   color:var(--accent)!important;border-bottom:none!important;
 }
-input[id$="-kb"]{
+input[id$="-kb"],input[id$="-fv"]{
   font-size:48px!important;font-weight:200!important;
   letter-spacing:-1.5px;text-align:left!important;
   padding-right:52px!important;
@@ -739,13 +739,10 @@ function renderForm(ds, pfx) {
 <div class="card">
   <div class="card-label">Nutrition</div>
   <div class="sub-label">Fruit &amp; Veg Portions</div>
-  <div class="stepper">
-    <button class="step-btn" onclick="stepFV('${ds}','${pfx}',-1)">−</button>
-    <div class="step-val-wrap">
-      <div class="step-val" id="${pfx}-fv">${e.fruitVeg ?? '—'}</div>
-      <div class="step-unit">portions</div>
-    </div>
-    <button class="step-btn" onclick="stepFV('${ds}','${pfx}',1)">+</button>
+  <div class="weight-wrap">
+    <input id="${pfx}-fv" type="number" min="0" max="20" inputmode="numeric" autocomplete="off"
+      value="${e.fruitVeg ?? ''}" placeholder="—">
+    <span class="weight-unit">portions</span>
   </div>
   <div class="sub-label" style="margin-top:16px">Supplements</div>
   <input id="${pfx}-sup" type="text" value="${esc(e.supplements)}"
@@ -775,7 +772,7 @@ function wItem(ds, pfx, w) {
 let _saveTimer = null;
 
 function bindForm(ds, pfx) {
-  const ids = [`${pfx}-wt`,`${pfx}-es`,`${pfx}-ee`,`${pfx}-kb`,`${pfx}-sup`];
+  const ids = [`${pfx}-wt`,`${pfx}-es`,`${pfx}-ee`,`${pfx}-kb`,`${pfx}-fv`,`${pfx}-sup`];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if(el) el.addEventListener('input', () => schedSave(ds, pfx));
@@ -805,6 +802,7 @@ function flushForm(ds, pfx) {
   const es  = g(`${pfx}-es`);  if(es)  entry.eatingStart  = es.value;
   const ee  = g(`${pfx}-ee`);  if(ee)  entry.eatingEnd    = ee.value;
   const kb  = g(`${pfx}-kb`);  if(kb)  entry.kcalBurned   = kb.value;
+  const fv  = g(`${pfx}-fv`);  if(fv)  entry.fruitVeg     = fv.value === '' ? null : Number(fv.value);
   const sup = g(`${pfx}-sup`); if(sup) entry.supplements  = sup.value;
   saveEntry(ds, entry);
 }
@@ -876,19 +874,6 @@ function togHabit(ds, pfx, field) {
   if(!el) return;
   el.className = 'habit-btn' + habitCls(field, entry[field]);
   el.querySelector('.hs').textContent = habitLabel(entry[field]);
-}
-
-// ════════════════════════════════════════════════
-//  FRUIT & VEG
-// ════════════════════════════════════════════════
-function stepFV(ds, pfx, delta) {
-  const entry = getEntry(ds);
-  const isNull = entry.fruitVeg === null || entry.fruitVeg === undefined;
-  if(isNull && delta < 0) return;
-  entry.fruitVeg = Math.max(0, Math.min(20, (isNull ? 0 : entry.fruitVeg) + delta));
-  saveEntry(ds, entry);
-  const el = document.getElementById(`${pfx}-fv`);
-  if(el) el.textContent = entry.fruitVeg;
 }
 
 // ════════════════════════════════════════════════
