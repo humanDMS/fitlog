@@ -1045,21 +1045,13 @@ function setRange(n) {
 }
 
 const WT_RANGES = [
-  { label:'7D',  days:7,   minPrior:0   },
-  { label:'30D', days:30,  minPrior:8   },
-  { label:'3M',  days:90,  minPrior:31  },
-  { label:'6M',  days:180, minPrior:91  },
-  { label:'1Y',  days:365, minPrior:181 },
-  { label:'All', days:0,   minPrior:366 },
+  { label:'7D',  days:7   },
+  { label:'30D', days:30  },
+  { label:'3M',  days:90  },
+  { label:'6M',  days:180 },
+  { label:'1Y',  days:365 },
+  { label:'All', days:0   },
 ];
-
-function oldestWeightDays(all) {
-  const wds = Object.keys(all)
-    .filter(ds => all[ds].weight && String(all[ds].weight).trim() !== '')
-    .sort();
-  if(!wds.length) return 0;
-  return Math.round((new Date(todayStr()+'T00:00:00') - new Date(wds[0]+'T00:00:00')) / 86400000);
-}
 
 function wtRangeDates(all, days) {
   if(days === 0) {
@@ -1100,15 +1092,11 @@ function renderDashboard() {
   const noFapN = loggedNF.length, alcN = loggedAlc.length, trtN = loggedTrt.length;
 
   // Weight — separate range from other metrics
-  const ageDays = oldestWeightDays(all);
-  const availWtRanges = WT_RANGES.filter(r => ageDays >= r.minPrior);
-  if(availWtRanges.length && !availWtRanges.find(r => r.days === weightRange))
-    weightRange = availWtRanges[availWtRanges.length - 1].days;
   const wtDates   = wtRangeDates(all, weightRange);
   const wtLabels  = wtDates.map(dispShort);
   const wtWeights = wtDates.map(ds => (all[ds]?.weight) ? Number(all[ds].weight) : null);
   const latestW   = [...wtWeights].reverse().find(w => w !== null);
-  const wtRangeBtnsHtml = availWtRanges.map(r =>
+  const wtRangeBtnsHtml = WT_RANGES.map(r =>
     `<button class="wt-range-btn${r.days===weightRange?' active':''}" onclick="setWeightRange(${r.days})">${r.label}</button>`
   ).join('');
 
